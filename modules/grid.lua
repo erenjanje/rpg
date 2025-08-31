@@ -1,35 +1,61 @@
 local new = require('table.new')
+local ffi = require('ffi')
 
 ---@class Grid
----@field width number
----@field height number
----@field [number] number
 local Grid = {
     Types = {
         Water = 0,
         Ground = 1,
-    }
+    },
+    BASE = 0,
+    CHUNK_SIZE_X = 16,
+    CHUNK_SIZE_Y = 16,
 }
 Grid.__index = Grid
-local base = 0
 
 for _, _ in pairs(Grid.Types) do
-    base = base + 1
+    Grid.BASE = Grid.BASE + 1
 end
 
----@param width number
----@param height number
+---@param chunk_x number
+---@param chunk_y number
 ---@return Grid
-function Grid.new(width, height)
-    local self = setmetatable(new(width * height, 2), Grid) ---@type Grid
-    self.width = width
-    self.height = height
-
-    local size = width * height
-
-    for i = 1, size do
-        self[i] = Grid.Types.Water
+function Grid.new(chunk_x, chunk_y)
+    ---@class Grid
+    local self = setmetatable(new(Grid.CHUNK_SIZE_X * Grid.CHUNK_SIZE_Y, 2), Grid)
+    self.data = love.image.newImageData(Grid.CHUNK_SIZE_X, Grid.CHUNK_SIZE_Y)
+    self.pointer = ffi.cast('uint32_t*', self.data:getFFIPointer()) ---@type ffi.cdata*
+    for y = 0, Grid.CHUNK_SIZE_Y - 1 do
+        for x = 0, Grid.CHUNK_SIZE_X - 1 do
+            local index = Grid.CHUNK_SIZE_X * y + x
+            local noise = love.math.noise(x * (1 / Grid.CHUNK_SIZE_X) + chunk_x,
+                y * (1 / Grid.CHUNK_SIZE_Y) + chunk_y)
+            self.pointer[index] = bit.bor(noise < 0.5 and 0 or 1, 0xFF000000)
+        end
     end
+
+    self.tiles = love.image.newImageData(Grid.CHUNK_SIZE_X, Grid.CHUNK_SIZE_Y)
+    self.tile_pointer = ffi.cast('uint32_t*', self.tiles:getFFIPointer())
+    for y = 0, Grid.CHUNK_SIZE_Y - 2 do
+        for x = 0, Grid.CHUNK_SIZE_X - 2 do
+            local tile_index = (Grid.CHUNK_SIZE_X) * y + x
+
+            local top_left = self.pointer[Grid.CHUNK_SIZE_X * y + x]
+            local top_right = self.pointer[Grid.CHUNK_SIZE_X * y + (x + 1)]
+            local bottom_left = self.pointer[Grid.CHUNK_SIZE_X * (y + 1) + x]
+            local bottom_right = self.pointer[Grid.CHUNK_SIZE_X * (y + 1) + (x + 1)]
+
+            local value = top_left * Grid.BASE^0 + top_right * Grid.BASE^1 + bottom_left * Grid.BASE^2 + bottom_right * Grid.BASE^3
+
+            self.tile_pointer[tile_index] = bit.bor(value, 0xFF000000)
+        end
+    end
+
+    self.image = love.graphics.newImage(self.data)
+    self.image:setFilter('nearest', 'nearest')
+
+    self.tile_image = love.graphics.newImage(self.tiles)
+    self.tile_image:setFilter('nearest', 'nearest')
 
     return self
 end
@@ -40,9 +66,9 @@ end
 ---@return number
 function Grid:at(x, y)
     if y then
-        return self[(y - 1) * self.width + x]
+        return self.pointer[Grid.CHUNK_SIZE_X * (y - 1) + (x - 1)]
     else
-        return self[x]
+        return self.pointer[x - 1]
     end
 end
 
@@ -53,38 +79,19 @@ end
 function Grid:set(x, y, value)
     if not value then
         value = y
-        self[x] = value
+        self.pointer[x - 1] = value
     else
-        self[(y - 1) * self.width + x] = value
+        self.pointer[(y - 1) * Grid.CHUNK_SIZE_X + (x - 1)] = value
     end
+    self.image:replacePixels(self.data)
 end
 
----@param batch love.SpriteBatch
----@param sprites love.Quad[]
 ---@param pos_x number?
 ---@param pos_y number?
-function Grid:draw(batch, sprites, pos_x, pos_y)
+function Grid:draw(pos_x, pos_y)
     pos_x = pos_x or 0
     pos_y = pos_y or 0
-    local width, height = self.width - 1, self.height - 1
-    for y_index = 1, width do
-        for x_index = 1, height do
-            local x_next = x_index + 1
-            local y_next = y_index + 1
-
-            local top_left = self:at(x_index, y_index)
-            local top_right = self:at(x_next, y_index)
-            local bottom_left = self:at(x_index, y_next)
-            local bottom_right = self:at(x_next, y_next)
-
-            local sprite_index = (top_left + (base) * top_right + (base ^ 2) * bottom_left + (base ^ 3) * bottom_right) +
-                1
-
-            local x, y = (x_index - 1) * 32, (y_index - 1) * 32
-            local sprite = sprites[sprite_index]
-            batch:add(sprite, pos_x + x, pos_y + y, 0, 2, 2)
-        end
-    end
+    love.graphics.draw(self.tile_image, pos_x, pos_y, 0, 32, 32)
 end
 
 return Grid

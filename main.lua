@@ -1,34 +1,29 @@
 local Grid = require('modules.grid')
 
-local tilemap ---@type love.Image
-local batch ---@type love.SpriteBatch
-
 local grid ---@type Grid
-local sprites = {} ---@type love.Quad[]
+local tile_shader ---@type love.Shader
+local tilemap_atlas ---@type love.Image
 
 function love.load()
-    tilemap = love.graphics.newImage('assets/tilemap.png')
-    tilemap:setFilter("nearest", "nearest")
-    batch = love.graphics.newSpriteBatch(tilemap)
-    local tilemap_x, tilemap_y = tilemap:getDimensions()
-    for j = 1, 16 do
-        for i = 1, 16 do
-            table.insert(sprites, love.graphics.newQuad((i - 1) * 16, (j - 1) * 16, 16, 16, tilemap_x, tilemap_y))
-        end
-    end
+    tilemap_atlas = love.graphics.newImage("assets/tilemap.png")
+    tilemap_atlas:setFilter('nearest', 'nearest')
 
-    grid = Grid.new(32, 32)
-
-    local noise_base_x, noise_base_y = love.math.random(0, 255), love.math.random(0, 255)
-    for y = 1, 32 do
-        for x = 1, 32 do
-            grid:set(x, y, math.floor(love.math.noise(noise_base_x + x / 16, noise_base_y + y / 16) * 2))
-        end
+    tile_shader = love.graphics.newShader("shaders/tilemap.glsl")
+    grid = Grid.new(0, 1)
+    for i = 1, 16 do
+        print(('%08x'):format(grid:at(i, i)))
     end
 end
 
 function love.draw()
-    batch:clear()
-    grid:draw(batch, sprites)
-    love.graphics.draw(batch)
+    love.graphics.setShader(tile_shader)
+    tile_shader:send('tilemap_atlas', tilemap_atlas)
+    grid:draw()
+end
+
+function love.keypressed(key)
+    if key == 's' and love.keyboard.isDown('lctrl') then
+        print('Saving...')
+        grid.tiles:encode('png', 'chunk_0_1.png')
+    end
 end
