@@ -56,22 +56,22 @@ function Chunk:set(x, y, value)
     end
 end
 
----@param chunk_top_left Chunk
----@param chunk_top_right Chunk
----@param chunk_bottom_left Chunk
+---@param chunk Chunk
+---@param chunk_right Chunk
+---@param chunk_bottom Chunk
 ---@param chunk_bottom_right Chunk
 ---@param x number
 ---@param y number
 ---@param chunk_size number
-local function index(chunk_top_left, chunk_top_right, chunk_bottom_left, chunk_bottom_right, x, y, chunk_size)
+local function index(chunk, chunk_right, chunk_bottom, chunk_bottom_right, x, y, chunk_size)
     x = x + 1
     y = y + 1
-    if x < chunk_size and y < chunk_size then
-        return chunk_top_left:at(x, y)
-    elseif x < chunk_size and y == chunk_size then
-        return chunk_bottom_left:at(x, 1)
-    elseif x == chunk_size and y < chunk_size then
-        return chunk_top_right:at(1, y)
+    if x <= chunk_size and y <= chunk_size then
+        return chunk:at(x, y)
+    elseif x <= chunk_size and y > chunk_size then
+        return chunk_bottom:at(x, 1)
+    elseif x > chunk_size and y <= chunk_size then
+        return chunk_right:at(1, y)
     else
         return chunk_bottom_right:at(1, 1)
     end
@@ -98,6 +98,10 @@ function Chunk:calculateRenderGrid(chunk_right, chunk_bottom, chunk_bottom_right
                 index(self, chunk_right, chunk_bottom, chunk_bottom_right, x, y + 1, self.chunk_size)
             local bottom_right =
                 index(self, chunk_right, chunk_bottom, chunk_bottom_right, x + 1, y + 1, self.chunk_size)
+
+            if y == 15 and x == 13 then
+                print(chunk_bottom:at(14, 1))
+            end
 
             local value = top_left * base ^ 0 + top_right * base ^ 1 + bottom_left * base ^ 2 + bottom_right * base ^ 3
 
