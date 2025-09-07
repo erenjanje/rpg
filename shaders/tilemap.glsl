@@ -15,6 +15,6 @@ vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
     vec2 tile = vec2(float(x), float(y)) / 16.0;
     vec2 in_tile_texcoord = mod(texture_coords, 1.0 / 16.0);
     vec4 texcolor = Texel(tilemap_atlas, tile + in_tile_texcoord);
-    return texcolor;
+    return texcolor * vec4(in_tile_texcoord * 8.0f, 1.0f,  1.0f);
 }
 #endif

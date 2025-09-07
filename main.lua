@@ -1,6 +1,8 @@
-local Grid = require('modules.grid')
+local dbg = require('debugger')
 
-local grid ---@type Grid
+local ChunkManager = require('modules.chunk_manager')
+
+local chunk_manager ---@type ChunkManager
 local tile_shader ---@type love.Shader
 local tilemap_atlas ---@type love.Image
 
@@ -9,21 +11,28 @@ function love.load()
     tilemap_atlas:setFilter('nearest', 'nearest')
 
     tile_shader = love.graphics.newShader("shaders/tilemap.glsl")
-    grid = Grid.new(0, 1)
-    for i = 1, 16 do
-        print(('%08x'):format(grid:at(i, i)))
-    end
+    chunk_manager = ChunkManager.new()
+end
+
+function love.update(dt)
+    chunk_manager:createChunk(1, 1)
+    chunk_manager:createChunk(2, 1)
+    chunk_manager:createChunk(1, 2)
+    chunk_manager:createChunk(2, 2)
 end
 
 function love.draw()
     love.graphics.setShader(tile_shader)
     tile_shader:send('tilemap_atlas', tilemap_atlas)
-    grid:draw()
+    local renderer = chunk_manager:createRenderer(1, 1)
+    local image = love.graphics.newImage(renderer)
+    image:setFilter("nearest", "nearest")
+    love.graphics.draw(image, 0, 0, 0, 32, 32)
 end
 
 function love.keypressed(key)
     if key == 's' and love.keyboard.isDown('lctrl') then
         print('Saving...')
-        grid.tiles:encode('png', 'chunk_0_1.png')
+        -- chunk_manager:dump()
     end
 end
